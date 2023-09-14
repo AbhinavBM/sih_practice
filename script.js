@@ -1,111 +1,107 @@
-// Import Axios for making HTTP requests
-import axios from 'axios';
-
 document.addEventListener("DOMContentLoaded", function () {
-    // Get references to HTML elements
-    const audioUploadForm = document.getElementById("audioUploadForm"); // Get the audio upload form
-    const responseMessage = document.getElementById("responseMessage"); // Get the response message container
-    const startRecordingButton = document.getElementById("startRecording"); // Get the "Start Recording" button (modified)
-    const stopRecordingButton = document.getElementById("stopRecording"); // Get the "Stop Recording" button
-    const playAudioButton = document.getElementById("playAudio"); // Get the "Play Audio" button
+    const startRecordingButton = document.getElementById("startRecording");
+    const stopRecordingButton = document.getElementById("stopRecording");
+    const playInputAudioButton = document.getElementById("playInputAudio");
+    const playOutputAudioButton = document.getElementById("playOutputAudio");
+    const audioInputContainer = document.getElementById("audio_input");
+    const audioOutputContainer = document.getElementById("audio_output");
+    let mediaRecorder;
+    let audioChunks = [];
+    let recordedAudioBlob;
 
-    let mediaRecorder; // Variable to store the MediaRecorder
-    let audioChunks = []; // Array to store audio chunks
-    let processedAudioBlob; // Blob to store processed audio data
-
-    // Function to start audio recording (modified)
+    // Function to start audio recording
     function startRecording() {
-        startRecordingButton.disabled = true; // Disable "Start Recording" button
-        stopRecordingButton.disabled = false; // Enable "Stop Recording" button
+        startRecordingButton.disabled = true;
+        stopRecordingButton.disabled = false;
         audioChunks = [];
 
-        navigator.mediaDevices
-            .getUserMedia({ audio: true })
-            .then(function (stream) {
-                mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.ondataavailable = function (event) {
-                    if (event.data.size > 0) {
-                        audioChunks.push(event.data);
-                    }
-                };
-                mediaRecorder.onstop = function () {
-                    const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-                    const audioFile = new File([audioBlob], "recorded_audio.wav");
-                    const formData = new FormData();
-                    formData.append("audioFile", audioFile);
+        // Access the user's microphone
+        try {
+            navigator.mediaDevices
+                .getUserMedia({ audio: true })
+                .then(function (stream) {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.ondataavailable = function (event) {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
+                    mediaRecorder.onstop = function () {
+                        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                        audioInputContainer.src = URL.createObjectURL(audioBlob);
+                        recordedAudioBlob = audioBlob;
+                        playInputAudioButton.disabled = false;
 
-                    const uploadButton = audioUploadForm.querySelector("button[type='submit']");
-                    uploadButton.disabled = false;
-                    audioUploadForm.dataset.recordedAudio = audioFile.name;
-
-                    responseMessage.innerHTML = "<p>Audio recorded successfully.</p>";
-
-                    processedAudioBlob = audioBlob;
-
-                    // Show the playback section
-                    document.getElementById("playSection").style.display = "block";
-                };
-                mediaRecorder.start();
-            })
-            .catch(function (error) {
-                console.error("Error accessing microphone:", error);
-            });
+                        // Make an API call to send the recorded audio to the Flask server
+                        sendAudioToServer(audioBlob);
+                    };
+                    mediaRecorder.start();
+                })
+                .catch(function (error) {
+                    console.error("Error accessing microphone:", error);
+                });
+        } catch (error) {
+            console.error("Error starting recording:", error);
+        }
     }
 
     // Function to stop audio recording
     function stopRecording() {
-        startRecordingButton.disabled = false; // Enable "Start Recording" button
-        stopRecordingButton.disabled = true; // Disable "Stop Recording" button
+        startRecordingButton.disabled = false;
+        stopRecordingButton.disabled = true;
 
         if (mediaRecorder && mediaRecorder.state !== "inactive") {
-            mediaRecorder.stop();
+            try {
+                mediaRecorder.stop();
+            } catch (error) {
+                console.error("Error stopping recording:", error);
+            }
+        }
+    }
+
+    // Function to play the recorded input audio
+    function playInputAudio() {
+        if (recordedAudioBlob) {
+            const audioURL = URL.createObjectURL(recordedAudioBlob);
+            audioInputContainer.src = audioURL;
+            audioInputContainer.play();
+        }
+    }
+
+    // Function to send recorded audio to the Flask server
+    function sendAudioToServer(audioBlob) {
+        const formData = new FormData();
+        formData.append("audioFile", audioBlob);
+
+        // Make an API POST request to the Flask server
+        try {
+            fetch("http://127.0.0.1:5000/process_audio", {
+                method: "POST",
+                body: formData,
+            })
+                .then((response) => response.blob())
+                .then((data) => {
+                    // Process the response data as needed
+                    // In this example, we assume the response is audio data
+                    audioOutputContainer.src = URL.createObjectURL(data);
+                    playOutputAudioButton.disabled = false;
+                })
+                .catch((error) => {
+                    console.error("Error sending audio to server:", error);
+                });
+        } catch (error) {
+            console.error("Error making API request:", error);
         }
     }
 
     // Event listeners for buttons
-    startRecordingButton.addEventListener("click", startRecording); // Event listener for "Start Recording" button
-    stopRecordingButton.addEventListener("click", stopRecording); // Event listener for "Stop Recording" button
-
-    // Audio playback functionality
-    if (playAudioButton) {
-        playAudioButton.addEventListener("click", function () {
-            if (processedAudioBlob) {
-                const audioURL = URL.createObjectURL(processedAudioBlob);
-                const audioPlayer = new Audio(audioURL);
-                audioPlayer.controls = true;
-                responseMessage.innerHTML = "<p>Playing Processed Audio:</p>";
-                responseMessage.appendChild(audioPlayer);
-            }
-        });
-    }
-
-    // Handle audio processing and upload
-    audioUploadForm.addEventListener("submit", function (e) {
-        e.preventDefault();
-        const formData = new FormData(audioUploadForm);
-        const recordedAudio = audioUploadForm.dataset.recordedAudio;
-
-        if (!recordedAudio) {
-            responseMessage.innerHTML = "<p>No recorded audio available.</p>";
-            return;
+    startRecordingButton.addEventListener("click", startRecording);
+    stopRecordingButton.addEventListener("click", stopRecording);
+    playInputAudioButton.addEventListener("click", playInputAudio);
+    playOutputAudioButton.addEventListener("click", function () {
+        if (audioOutputContainer.src) {
+            audioOutputContainer.play();
         }
-
-        // Use Axios to make the POST request to the server for audio processing
-        axios
-            .post("http://localhost:5000/process_audio", formData)
-            .then((response) => {
-                if (response.status === 200) {
-                    return response.data;
-                } else {
-                    throw new Error("Upload failed");
-                }
-            })
-            .then((data) => {
-                processedAudioBlob = data;
-                responseMessage.innerHTML = "<p>Audio processed successfully. You can now play it.</p>";
-            })
-            .catch((error) => {
-                responseMessage.innerHTML = `<p>Error: ${error.message}</p>`;
-            });
     });
 });
+
