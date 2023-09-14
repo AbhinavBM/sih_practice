@@ -18,7 +18,191 @@
     <audio id="audio_input" controls></audio>
     <audio id="audio_output" controls></audio>
 
-    <!-- Include the JavaScript file -->
-    <script src="script.js"></script>
+    <!-- Add this link for downloading the recorded audio -->
+    <a id="downloadAudioLink" style="display: none;">Download Recorded Audio</a>
+
+    <!-- Add this button to download the audio before sending -->
+    <button id="downloadUnsentAudio" disabled>Download Audio</button>
+
+    <!-- Add this button to play the processed audio -->
+    <button id="playProcessedAudio" disabled>Play Processed Audio</button>
+
+    <!-- JavaScript code -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const startRecordingButton = document.getElementById("startRecording");
+            const stopRecordingButton = document.getElementById("stopRecording");
+            const playInputAudioButton = document.getElementById("playInputAudio");
+            const playOutputAudioButton = document.getElementById("playOutputAudio");
+            const audioInputContainer = document.getElementById("audio_input");
+            const audioOutputContainer = document.getElementById("audio_output");
+            const playProcessedAudioButton = document.getElementById("playProcessedAudio"); // Added button
+            let mediaRecorder;
+            let audioChunks = [];
+            let recordedAudioBlob;
+
+            // Function to start audio recording
+            function startRecording() {
+                startRecordingButton.disabled = true;
+                stopRecordingButton.disabled = false;
+                audioChunks = [];
+
+                // Enable the download button for unsent audio
+                const downloadUnsentAudioButton = document.getElementById("downloadUnsentAudio");
+                downloadUnsentAudioButton.disabled = false;
+
+                // Access the user's microphone
+                try {
+                    navigator.mediaDevices
+                        .getUserMedia({ audio: true })
+                        .then(function (stream) {
+                            mediaRecorder = new MediaRecorder(stream);
+                            mediaRecorder.ondataavailable = function (event) {
+                                if (event.data.size > 0) {
+                                    audioChunks.push(event.data);
+                                }
+                            };
+                            mediaRecorder.onstop = function () {
+                                const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                                audioInputContainer.src = URL.createObjectURL(audioBlob);
+                                recordedAudioBlob = audioBlob;
+                                playInputAudioButton.disabled = false;
+
+                                // Enable the download link and set its attributes
+                                if (recordedAudioBlob) {
+                                    const audioURL = URL.createObjectURL(recordedAudioBlob);
+                                    audioInputContainer.src = audioURL;
+                                    audioInputContainer.play();
+
+                                    const downloadAudioLink = document.getElementById("downloadAudioLink");
+                                    downloadAudioLink.href = audioURL;
+                                    downloadAudioLink.download = "recorded_audio.wav"; // Set the filename
+                                    downloadAudioLink.style.display = "block"; // Show the download link
+                                }
+
+                                // Make an API call to send the recorded audio to the Flask server
+                                sendAudioToServer(audioBlob);
+                            };
+                            mediaRecorder.start();
+                            console.log("Step 1: Audio recording started."); // Log the step
+                        })
+                        .catch(function (error) {
+                            console.error("Error accessing microphone:", error);
+                        });
+                } catch (error) {
+                    console.error("Error starting recording:", error);
+                }
+            }
+
+       // Function to stop audio recording and send the recorded audio to the server
+function stopRecording() {
+    startRecordingButton.disabled = false;
+    stopRecordingButton.disabled = true;
+
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try {
+            mediaRecorder.stop();
+            console.log("Audio recording stopped.");
+
+            // Send the recorded audio to the Flask server
+            if (recordedAudioBlob) {
+                sendAudioToServer(recordedAudioBlob);
+            }
+        } catch (error) {
+            console.error("Error stopping recording:", error);
+        }
+    }
+}
+
+
+            // Function to play the recorded input audio
+            function playInputAudio() {
+                if (recordedAudioBlob) {
+                    const audioURL = URL.createObjectURL(recordedAudioBlob);
+                    audioInputContainer.src = audioURL;
+                    audioInputContainer.play();
+                    console.log("Step 3: Playing recorded input audio."); // Log the step
+                }
+            }
+
+            // Function to download the recorded audio before sending
+            function downloadUnsentAudio() {
+                if (recordedAudioBlob) {
+                    const audioURL = URL.createObjectURL(recordedAudioBlob);
+
+                    // Create a temporary anchor element for downloading
+                    const downloadLink = document.createElement("a");
+                    downloadLink.href = audioURL;
+                    downloadLink.download = "unsent_audio.wav"; // Set the filename
+                    downloadLink.style.display = "none";
+
+                    // Trigger the download
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                    console.log("Step 4: Downloading unsent audio."); // Log the step
+                }
+            }
+
+            // Function to send recorded audio to the Flask server
+            function sendAudioToServer(audioBlob) {
+                const formData = new FormData();
+                formData.append("audioFile", audioBlob);
+
+                // Make an API POST request to the Flask server
+                try {
+                    fetch("http://127.0.0.1:5000/process_audio", {
+                        method: "POST",
+                        body: formData,
+                    })
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.blob();
+                    })
+                    .then((data) => {
+                        // Process the response data as needed
+                        // In this example, we assume the response is audio data
+                        audioOutputContainer.src = URL.createObjectURL(data);
+                        playOutputAudioButton.disabled = false;
+                        playProcessedAudioButton.disabled = false; // Enable the play button
+                        console.log("Step 5: Received processed audio from the server."); // Log the step
+                    })
+                    .catch((error) => {
+                        console.error("Error sending or receiving audio from server:", error);
+                    });
+                } catch (error) {
+                    console.error("Error making API request:", error);
+                }
+            }
+
+            // Function to play the processed audio
+            function playProcessedAudio() {
+                if (audioOutputContainer.src) {
+                    audioOutputContainer.play();
+                    console.log("Step 6: Playing processed audio."); // Log the step
+                }
+            }
+
+            // Event listeners for buttons
+            startRecordingButton.addEventListener("click", startRecording);
+            stopRecordingButton.addEventListener("click", stopRecording);
+            playInputAudioButton.addEventListener("click", playInputAudio);
+            playOutputAudioButton.addEventListener("click", function () {
+                if (audioOutputContainer.src) {
+                    audioOutputContainer.play();
+                    console.log("Step 7: Playing processed audio."); // Log the step
+                }
+            });
+
+            // Add an event listener for the downloadUnsentAudio button
+            const downloadUnsentAudioButton = document.getElementById("downloadUnsentAudio");
+            downloadUnsentAudioButton.addEventListener("click", downloadUnsentAudio);
+
+            // Add an event listener for the playProcessedAudio button
+            playProcessedAudioButton.addEventListener("click", playProcessedAudio);
+        });
+    </script>
 </body>
 </html>
