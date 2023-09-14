@@ -1,37 +1,33 @@
 from flask import Flask, request, jsonify, Response
-import io
-import speech_recognition as sr
-import pyttsx3
-import googletrans
-from googletrans import Translator
+from flask_cors import CORS  # Import the CORS extension
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for your Flask app
 
-# Initialize the recognizer and text-to-speech engine
-recognizer = sr.Recognizer()
-engine = pyttsx3.init()
-trans = Translator()
+# Function to process audio (replace with your actual audio processing logic)
+def process_audio(audio_data):
+    # Replace this with your audio processing logic
+    # For this example, we'll just return the input audio data as-is
+    return audio_data
 
-# Function to recognize and translate audio (same as before)
-
-# Define the root route
+# Root route
 @app.route('/')
 def home():
     return "Welcome to the Audio Processing API"
 
 # Route to process audio
 @app.route('/process_audio', methods=['POST'])
-def process_audio():
+def process_audio_route():
     try:
         # Get the audio data from the POST request
         audio_data = request.data
 
-        # Call the function to recognize and translate audio (same as before)
-        output_audio_data = recognize_and_translate(audio_data)
+        # Call the function to process audio
+        processed_audio_data = process_audio(audio_data)
 
-        if output_audio_data:
-            # Return the audio data as a response
-            return Response(output_audio_data, mimetype="audio/wav")
+        if processed_audio_data:
+            # Return the processed audio data as a response
+            return Response(processed_audio_data, mimetype="audio/wav")
         else:
             return jsonify({"error": "Audio processing failed"}), 500
 
