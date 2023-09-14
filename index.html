@@ -3,32 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Recording and Processing</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Audio Recorder and Processor</title>
 </head>
 <body>
-    <h1>Record and Process Audio</h1>
+    <h1>Audio Recorder and Processor</h1>
 
-    <div class="recording-options">
-        <div class="record-button">
-            <button id="startRecording">Start Recording</button>
-            <button id="stopRecording" disabled>Stop Recording</button>
-        </div>
-    </div>
+    <!-- Buttons for audio recording, stopping recording, and playing -->
+    <button id="startRecording">Start Recording</button>
+    <button id="stopRecording" disabled>Stop Recording</button>
+    <button id="playInputAudio" disabled>Play Input Audio</button>
+    <button id="playOutputAudio" disabled>Play Processed Audio</button>
 
-    <div id="responseMessage"></div>
+    <!-- Audio containers for input and output -->
+    <audio id="audio_input" controls></audio>
+    <audio id="audio_output" controls></audio>
 
-    <!-- Add an audio playback section with a button -->
-    <div id="playSection" style="display: none;">
-        <button id="playAudio">Play Processed Audio</button>
-    </div>
-
-    <form id="audioUploadForm" enctype="multipart/form-data">
-        <!-- Replace the following input with your audio input field -->
-        <input type="file" name="audioFile" accept="audio/*">
-        <button type="submit" disabled>Upload</button>
-    </form>
-
+    <!-- Include the JavaScript file -->
     <script src="script.js"></script>
 </body>
 </html>
