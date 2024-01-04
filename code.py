@@ -1,33 +1,39 @@
+# Importing necessary libraries
 from mrjob.job import MRJob
+from mrjob.step import MRStep
+from datetime import datetime
 
 class UberAnalysis(MRJob):
 
+    # Define the mapper step
     def mapper(self, _, line):
-        # Split the line into columns
-        columns = line.strip().split(',')
+        data = line.split(',')
+        dispatching_base_number = data[0].strip()
+        date = data[1].strip()
+        trips = int(data[3].strip())
 
-        # Extract relevant information
-        base_number = columns[0]
-        date = columns[1]
-        trips = int(columns[3])
+        yield (dispatching_base_number, date), trips
 
-        # Emit key-value pairs (date, (base_number, trips))
-        yield date, (base_number, trips)
-
+    # Define the reducer step
     def reducer(self, key, values):
-        # Calculate total trips for each base on a given date
-        total_trips_per_base = {}
+        total_trips = sum(values)
+        yield key, total_trips
 
-        for base_number, trips in values:
-            if base_number not in total_trips_per_base:
-                total_trips_per_base[base_number] = 0
-            total_trips_per_base[base_number] += trips
+    # Define the second mapper step for sorting
+    def mapper_sort(self, key, value):
+        yield None, (value, key)
 
-        # Find the base with the maximum trips on the current date
-        max_base = max(total_trips_per_base, key=total_trips_per_base.get)
+    # Define the second reducer step for sorting
+    def reducer_sort(self, _, key_values):
+        for value, key in sorted(key_values, reverse=True):
+            yield key, value
 
-        # Emit the result (date, base with max trips, max trips)
-        yield key, (max_base, total_trips_per_base[max_base])
+    # Define the steps for the MapReduce job
+    def steps(self):
+        return [
+            MRStep(mapper=self.mapper, reducer=self.reducer),
+            MRStep(mapper=self.mapper_sort, reducer=self.reducer_sort)
+        ]
 
 if __name__ == '__main__':
     UberAnalysis.run()
