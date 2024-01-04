@@ -1,7 +1,6 @@
-# Importing necessary libraries
+# -*- coding: utf-8 -*-
 from mrjob.job import MRJob
 from mrjob.step import MRStep
-from datetime import datetime
 
 class UberAnalysis(MRJob):
 
@@ -37,3 +36,4 @@ class UberAnalysis(MRJob):
 
 if __name__ == '__main__':
     UberAnalysis.run()
+
