@@ -26,8 +26,8 @@ class UberAnalysis(MRJob):
         # Find the base with the maximum trips on the current date
         max_base = max(total_trips_per_base, key=total_trips_per_base.get)
 
-        # Emit the result (date, base with max trips)
-        yield key, max_base
+        # Emit the result (date, base with max trips, max trips)
+        yield key, (max_base, total_trips_per_base[max_base])
 
 if __name__ == '__main__':
     UberAnalysis.run()
